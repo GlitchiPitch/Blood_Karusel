@@ -13,14 +13,14 @@ local requiredInstances: RequiredInstances
 
 local function showNotification(isVisible: boolean, text: string)
     local notificationGui = requiredInstances.NotificationGui
-    local notification = notificationGui:FindFirstChild("Notification") :: Frame
+    local notification = notificationGui:FindFirstChild("NotificationLabel") :: Frame
     notification.Visible = isVisible
     notification.Label.Text = text
     
 end
 
 local function timer(leftTime: number)
-    showNotification(leftTime > 0, leftTime)
+    showNotification(leftTime > 0, tostring(leftTime))
 end
 
 local function died()
@@ -35,11 +35,18 @@ local function win()
     showNotification(false, "")
 end
 
+local function returnToKarusel()
+    showNotification(true, "REUTRN TO KARUSEL")
+    task.wait(Constants.SHOW_NOTIFICATION_TIME)
+    showNotification(false, "")
+end
+
 local function notificationRemoteConnect(action: string, ...: any)
     local actions = {
         [notificationRemoteActions.timer] = timer,
         [notificationRemoteActions.died] = died,
         [notificationRemoteActions.win] = win,
+        [notificationRemoteActions.returnToKarusel] = returnToKarusel,
     }
 
     if actions[action] then
