@@ -21,9 +21,23 @@ local karusel: Folder & {
 	Hinge: HingeConstraint,
 	Doors: Folder & {
 		Model & {
+			Body: Model & { Part },
 			Hinge: HingeConstraint,
 		}
 	},
+	Floor: Part,
+	Billboard: Part & {
+		SurfaceGui: SurfaceGui & {
+			Info: Frame & {
+				Timer: Frame & {
+					Label: TextLabel,
+				},
+				GroupSize: Frame & {
+					Amount: TextLabel,
+				}
+			},
+		},
+	}
 } = workspace.Karusel
 
 local readyPlayers: { Player } = {}
@@ -48,11 +62,21 @@ local function setFloor(gameStatus: boolean)
 end
 
 local function spinKarusel()
-	warn(`spinKarusel`)
+	warn(` ___ spinKarusel ___ `)
+	local killFloorConnect: RBXScriptConnection
 	karusel.Hinge.Enabled = true
 	warn(`=== turn on Hinge ===`)
+	karusel.Floor.BrickColor = BrickColor.new("Really red")
+	killFloorConnect = karusel.Floor.Touched:Connect(function(hit: BasePart)
+		local player = Players:GetPlayerFromCharacter(hit.Parent)
+		if player then
+			player.Character.Humanoid.Health = 0
+		end
+	end)
 	task.wait(Constants.SPIN_KARUSEL_TIMER)
 	warn(`=== turn off Hinge ===`)
+	killFloorConnect:Disconnect()
+	karusel.Floor.BrickColor = BrickColor.new("Medium green")
 	karusel.Hinge.Enabled = false
 end
 
@@ -83,11 +107,20 @@ end
 
 local function openSpecificDoors()
 	warn(` === openSpecificDoors === `)
+
+	if #readyPlayers <= Constants.MIN_PLAYERS then
+		return
+	end
+
 	local function open(isFirstOpen: boolean)
 		warn(`open isFirstOpen = {isFirstOpen}`)
 		print("openedDoors", openedDoors)
 		for _, door in openedDoors do
-			door.PrimaryPart.Transparency = 0.5
+
+			for _, item in door.Body:GetChildren() do
+				item.Transparency = 1
+			end
+			
 			door.PrimaryPart.CanCollide = false
 
 			if isFirstOpen then
@@ -148,53 +181,64 @@ local function openSpecificDoors()
 end
 
 local function closeDoors()
-	warn(`closeDoors()`)
+	warn(` ___ closeDoors ___ `)
 	print("openedDoors", openedDoors)
 	for _, door in openedDoors do
-		door.PrimaryPart.Transparency = 0
+		for _, item in door.Body:GetChildren() do
+			item.Transparency = item.Name == "Glass" and .8 or 0
+		end
 		door.PrimaryPart.CanCollide = true
-		-- if doorsTouchedConnect[door] and doorsTouchedConnect[door].Connected then 
-		-- 	doorsTouchedConnect[door]:Disconnect()
-		-- 	doorsTouchedConnect[door] = nil
-		-- end
 	end
 end
 
 local function clearRooms()
-	warn(`clearRooms()`)
+	warn(` ___ clearRooms ___ `)
 	print("playersInRooms", playersInRooms)
-	for _, playersInRoom in playersInRooms do
-		if #playersInRoom > 0 then
-			for _, player in playersInRoom do
-				if player and player.Character then
-					player.Character.Humanoid.Health = 0
+
+	if #readyPlayers > Constants.MIN_PLAYERS then
+		for _, playersInRoom in playersInRooms do
+			if #playersInRoom > 0 then
+				for _, player in playersInRoom do
+					if player and player.Character then
+						player.Character.Humanoid.Health = 0
+					end
 				end
 			end
 		end
+
+		for i = 1, #doorsTouchedConnect do
+			doorsTouchedConnect[i]:Disconnect()
+			doorsTouchedConnect[i] = nil
+		end
 	end
 
-	for i = 1, #doorsTouchedConnect do
-		doorsTouchedConnect[i]:Disconnect()
-		doorsTouchedConnect[i] = nil
-	end
-	
 	openedDoors = {}
 	playersInRooms = {}
 end
 
 local function safeTimer()
-	warn(`safeTimer()`)
+	warn(` ___ safeTimer ___ `)
+
+	karusel.Billboard.SurfaceGui.Info.GroupSize.Amount.Text = livePlayerGroupSize
+
 	for i = Constants.SAFE_TIMER, 0, -1 do
 		if #readyPlayers <= Constants.MIN_PLAYERS then
 			break
 		end
 		task.wait(1)
-		print(i)
+		karusel.Billboard.SurfaceGui.Info.Timer.Label.Text = i
+		-- print(i)
 	end
+	
+	karusel.Billboard.SurfaceGui.Info.GroupSize.Amount.Text = 0
+	karusel.Billboard.SurfaceGui.Info.Timer.Label.Text = 0
 end
 
 local function returnToKaruselTimer()
-	warn(`returnToKaruselTimer()`)
+	warn(` ___ returnToKaruselTimer ___ `)
+	if #readyPlayers <= Constants.MIN_PLAYERS then
+		return
+	end
 	notificationRemote:FireAllClients(notificationRemoteActions.returnToKarusel)
 	for i = Constants.RETURN_TO_KARUSEL_TIMER, 0, -1 do
 		if #readyPlayers <= Constants.MIN_PLAYERS then
@@ -205,7 +249,7 @@ local function returnToKaruselTimer()
 end
 
 local function killLosers()
-	warn(`killLosers()`)
+	warn(` ___ killLosers ___ `)
 	local playersForKill = table.clone(readyPlayers)
 	print("playersForKill", playersForKill)
 	local safedPlayers = {}
@@ -259,6 +303,9 @@ local function winner(winnerPlayer: Player)
 end
 
 local function preparePlayers()
+
+	warn(` === [SERVER] PREPARE PLAYERS FOR GAME === `)
+
 	for i = 1, #readyPlayers do
 		local player = readyPlayers[i]
 		player.Character.Humanoid.Died:Once(function()
@@ -273,12 +320,12 @@ local function preparePlayers()
 end
 
 local function startKarusel()
-	-- warn(`startKarusel()`)
+	warn(` === [SERVER] START KARUSEL === `)
 
 	preparePlayers()
 
 	local function checkLivePlayers()
-		warn(`checkLivePlayers()`)
+		warn(` ___ checkLivePlayers ___ `)
 		for i = 1, #readyPlayers do
 			local player = readyPlayers[i]
 
@@ -317,7 +364,6 @@ local function startKarusel()
 end
 
 local function onPlayerAdded(player: Player)
-	warn(`onPlayerAdded(player: Player)`)
 	if not lobby.Floor.CanCollide then
 		repeat
 			task.wait(1)
@@ -327,14 +373,14 @@ local function onPlayerAdded(player: Player)
 end
 
 local function checkStartGame(): boolean
-	warn(`checkStartGame(): boolean`)
+	warn(` ___ checkStartGame ___`)
     readyPlayers = getReadyPlayers()
-	print("readyPlayers", readyPlayers)
+	print("readyPlayers", #readyPlayers)
 	return #readyPlayers > Constants.MIN_PLAYERS
 end
 
 local function lobbyTimer()
-	warn(`lobbyTimer()`)
+	warn(`=== [SERVER] START LOBBY TIMER === `)
 	for i = Constants.LOBBY_TIMER, 0, -1 do
 		task.wait(1)
 		notificationRemote:FireAllClients(notificationRemoteActions.timer, i)
@@ -349,8 +395,7 @@ local function startGame()
 end
 
 local function gameLoop()
-	-- warn(`gameLoop()`)
-	while task.wait() do
+	while task.wait(1) do
         lobbyTimer()
 		if checkStartGame() then
             startGame()
@@ -359,7 +404,6 @@ local function gameLoop()
 end
 
 local function setup()
-	-- warn(`setup()`)
 	Players.CharacterAutoLoads = false
 	Players.PlayerAdded:Connect(onPlayerAdded)
 end

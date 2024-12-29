@@ -7,7 +7,7 @@ local Constants = {
     SAFE_TIMER = 10,
     RETURN_TO_KARUSEL_TIMER = 10,
 
-    -- TESTING --
+    -- [TESTING]
     MIN_PLAYERS = 0,
 }
 
